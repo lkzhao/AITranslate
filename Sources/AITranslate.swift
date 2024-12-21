@@ -212,7 +212,7 @@ struct AITranslate: AsyncParsableCommand {
         .init(role: .system, content: Self.systemPrompt)!,
         .init(role: .user, content: translationRequest)!
       ],
-      model: .gpt4_turbo_preview
+      model: "gpt-4o"
     )
 
     do {

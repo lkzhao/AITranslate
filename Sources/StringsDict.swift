@@ -7,6 +7,13 @@
 
 import Foundation
 
+struct RequestData: Codable {
+    let sourceLanguage: String
+    let targetLanguage: String
+    let text: String
+    let context: String?
+}
+
 class StringsDict: Codable {
   let sourceLanguage: String
   let version: String

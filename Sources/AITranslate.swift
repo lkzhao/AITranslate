@@ -16,9 +16,11 @@ struct AITranslate: AsyncParsableCommand {
     You are a translator tool that translates UI strings for a software application.
     Your inputs will be a source language, a target language, the original text, and
     optionally some context to help you understand how the original text is used within
-    the application. Each piece of information will be inside some XML-like tags.
-    In your response include *only* the translation, and do not include any metadata, tags, 
-    periods, quotes, or new lines, unless included in the original text.
+    the application.
+    In your response include *only* the translation. 
+    If the original text is markdown, maintain its heading and format. 
+    Make sure that links, images, and code blocks are preserved in the translation. 
+    Also preserve the space before and after the strong emphasis.
     """
 
   static func gatherLanguages(from input: String) -> [String] {
@@ -197,13 +199,13 @@ struct AITranslate: AsyncParsableCommand {
       return text
     }
 
-    var translationRequest = "<source>\(source)</source>"
-    translationRequest += "<target>\(target)</target>"
-    translationRequest += "<original>\(text)</original>"
+    let request = RequestData(
+        sourceLanguage: source,
+        targetLanguage: target,
+        text: text,
+        context: context)
 
-    if let context {
-      translationRequest += "<context>\(context)</context>"
-    }
+    let translationRequest = try String(data: JSONEncoder().encode(request), encoding: .utf8)
 
     let query = ChatQuery(
       messages: [

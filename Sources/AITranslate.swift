@@ -17,7 +17,7 @@ struct AITranslate: AsyncParsableCommand {
     Your inputs will be a source language, a target language, the original text, and
     optionally some context to help you understand how the original text is used within
     the application.
-    In your response include *only* the translation. 
+    In your response include *only* the translation. Do not wrap it in any markup or escape characters.
     If the original text is markdown, maintain its heading and format. 
     Make sure that links, images, and code blocks are preserved in the translation. 
     Also preserve the space before and after the strong emphasis.
@@ -86,7 +86,7 @@ struct AITranslate: AsyncParsableCommand {
                 try await processEntry(
                     key: entry.key,
                     localizationGroup: entry.value,
-                    sourceLanguage: dict.sourceLanguage
+                    stringsDict: dict
                 )
 
                 let fractionProcessed = (Double(numberOfTranslationsProcessed) / Double(totalNumberOfTranslations))
@@ -117,7 +117,7 @@ struct AITranslate: AsyncParsableCommand {
     mutating func processEntry(
         key: String,
         localizationGroup: LocalizationGroup,
-        sourceLanguage: String
+        stringsDict: StringsDict
     ) async throws {
         for lang in languages {
             let localizationEntries = localizationGroup.localizations ?? [:]
@@ -136,13 +136,13 @@ struct AITranslate: AsyncParsableCommand {
 
             // The source text can either be the key or an explicit value in the `localizations`
             // dictionary keyed by `sourceLanguage`.
-            let sourceText = localizationEntries[sourceLanguage]?.stringUnit?.value ?? key
+            let sourceText = localizationEntries[stringsDict.sourceLanguage]?.stringUnit?.value ?? key
 
             let result = try await performTranslation(
                 sourceText,
-                from: sourceLanguage,
                 to: lang,
                 context: localizationGroup.comment,
+                stringsDict: stringsDict,
                 openAI: openAI
             )
 
@@ -183,9 +183,9 @@ struct AITranslate: AsyncParsableCommand {
 
     func performTranslation(
         _ text: String,
-        from source: String,
         to target: String,
         context: String? = nil,
+        stringsDict: StringsDict,
         openAI: OpenAI
     ) async throws -> String? {
 
@@ -199,12 +199,23 @@ struct AITranslate: AsyncParsableCommand {
             return text
         }
 
+        var existingTranslations: [String: String]?
+        if var context, context.hasPrefix("existing: ") {
+            context.removeFirst("existing: ".count)
+            existingTranslations = context
+                .split(separator: ",")
+                .reduce(into: [String: String]()) { result, key in
+                    let key = key.trimmingCharacters(in: .whitespacesAndNewlines)
+                    result[key] = stringsDict.strings[key]?.localizations?[target]?.stringUnit?.value
+                }
+        }
+
         let request = RequestData(
-            sourceLanguage: source,
+            sourceLanguage: stringsDict.sourceLanguage,
             targetLanguage: target,
             text: text,
             context: context,
-            existingTranslations: nil
+            existingTranslations: existingTranslations
         )
 
         let translationRequest = try String(data: JSONEncoder().encode(request), encoding: .utf8)

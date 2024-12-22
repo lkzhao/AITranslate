@@ -8,19 +8,20 @@
 import ArgumentParser
 import OpenAI
 import Foundation
+import Markdown
 
 @main
 struct AITranslate: AsyncParsableCommand {
     static let systemPrompt =
     """
     You are a translator tool that translates UI strings for a software application.
-    Your inputs will be a source language, a target language, the original text, and
+    System will input a source language, a target language, and
     optionally some context to help you understand how the original text is used within
     the application.
-    In your response include *only* the translation. Do not wrap it in any markup or escape characters.
-    If the original text is markdown, maintain its heading and format. 
-    Make sure that links, images, and code blocks are preserved in the translation. 
-    Also preserve the space before and after the strong emphasis.
+    User will send you the original text for translation.
+    In your response include only the translation. Do not wrap it in any markup or escape characters.
+    If the original text is markdown, maintain its heading and format.
+    Make sure that links, images, and code blocks are preserved in the translation.
     """
 
     static func gatherLanguages(from input: String) -> [String] {
@@ -199,21 +200,27 @@ struct AITranslate: AsyncParsableCommand {
             return text
         }
 
+        var lowerCaseKeyMap: [String: String] = [:]
+        for (key, _) in stringsDict.strings where stringsDict.strings[key.lowercased()] == nil {
+            lowerCaseKeyMap[key.lowercased()] = key
+        }
+
         var existingTranslations: [String: String]?
-        if var context, context.hasPrefix("existing: ") {
-            context.removeFirst("existing: ".count)
-            existingTranslations = context
-                .split(separator: ",")
+        let document = Document(parsing: text)
+        var strongTextWalker = StrongTextWalker()
+        strongTextWalker.visit(document)
+        if !strongTextWalker.strongTexts.isEmpty {
+            existingTranslations = strongTextWalker.strongTexts
                 .reduce(into: [String: String]()) { result, key in
-                    let key = key.trimmingCharacters(in: .whitespacesAndNewlines)
-                    result[key] = stringsDict.strings[key]?.localizations?[target]?.stringUnit?.value
+                    let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let finalKey = lowerCaseKeyMap[trimmed.lowercased()] ?? trimmed
+                    result[finalKey] = stringsDict.strings[finalKey]?.localizations?[target]?.stringUnit?.value
                 }
         }
 
         let request = RequestData(
             sourceLanguage: stringsDict.sourceLanguage,
             targetLanguage: target,
-            text: text,
             context: context,
             existingTranslations: existingTranslations
         )
@@ -223,7 +230,8 @@ struct AITranslate: AsyncParsableCommand {
         let query = ChatQuery(
             messages: [
                 .init(role: .system, content: Self.systemPrompt)!,
-                .init(role: .user, content: translationRequest)!
+                .init(role: .system, content: translationRequest)!,
+                .init(role: .user, content: text)!
             ],
             model: "gpt-4o"
         )
@@ -233,6 +241,9 @@ struct AITranslate: AsyncParsableCommand {
             let translation = result.choices.first?.message.content?.string ?? text
 
             if verbose {
+                if let existingTranslations, !existingTranslations.isEmpty {
+                    print("[🔍] Existing translations: \(existingTranslations)")
+                }
                 print("[\(target)] " + text + " -> " + translation)
             }
 

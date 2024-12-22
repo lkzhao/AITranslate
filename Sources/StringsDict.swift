@@ -10,7 +10,6 @@ import Foundation
 struct RequestData: Codable {
     let sourceLanguage: String
     let targetLanguage: String
-    let text: String
     let context: String?
     let existingTranslations: [String: String]?
 }

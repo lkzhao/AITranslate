@@ -15,13 +15,15 @@ struct AITranslate: AsyncParsableCommand {
     static let systemPrompt =
     """
     You are a translator tool that translates UI strings for a software application.
-    System will input a source language, a target language, and
+    System will send a source language, a target language, and
     optionally some context to help you understand how the original text is used within
-    the application.
+    the application. System might also send some existing translations. 
+    Use the existing translations when possible so that the translation is consistent with the rest of the application.
     User will send you the original text for translation.
     In your response include only the translation. Do not wrap it in any markup or escape characters.
     If the original text is markdown, maintain its heading and format.
-    Make sure that links, images, and code blocks are preserved in the translation.
+    Make sure that links, images, and code blocks are preserved in the translation. 
+    Text inside images should be translated. i.e. ![Hello World](hello-world) should be translated to ![Bonjour le monde](hello-world) if the language is fr.
     """
 
     static func gatherLanguages(from input: String) -> [String] {

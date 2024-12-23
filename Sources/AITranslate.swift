@@ -206,11 +206,9 @@ struct AITranslate: AsyncParsableCommand {
         }
 
         var existingTranslations: [String: String]?
-        let document = Document(parsing: text)
-        var strongTextWalker = StrongTextWalker()
-        strongTextWalker.visit(document)
-        if !strongTextWalker.strongTexts.isEmpty {
-            existingTranslations = strongTextWalker.strongTexts
+        let strongTextInText = text.markdownStrongTexts.union((context?.markdownStrongTexts ?? []))
+        if !strongTextInText.isEmpty {
+            existingTranslations = strongTextInText
                 .reduce(into: [String: String]()) { result, key in
                     let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
                     let finalKey = lowerCaseKeyMap[trimmed.lowercased()] ?? trimmed

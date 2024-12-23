@@ -45,6 +45,12 @@ struct AITranslate: AsyncParsableCommand {
     )
     var openAIKey: String
 
+    @Option(
+        name: .shortAndLong,
+        help: ArgumentHelp("Keys to translate, if not provided all keys are translated")
+    )
+    var keys: [String] = []
+
     @Flag(name: .shortAndLong)
     var verbose: Bool = false
 
@@ -125,12 +131,16 @@ struct AITranslate: AsyncParsableCommand {
             let unit = localizationEntries[lang]
 
             // Nothing to do.
-            if let unit, unit.hasTranslation, force == false {
+            if let unit, unit.hasTranslation, !force {
+                continue
+            }
+
+            if !keys.isEmpty, !keys.contains(key) {
                 continue
             }
 
             // Skip the ones with variations/substitutions since they are not supported.
-            if let unit, unit.isSupportedFormat == false {
+            if let unit, !unit.isSupportedFormat {
                 print("[⚠️] Unsupported format in entry with key: \(key)")
                 continue
             }

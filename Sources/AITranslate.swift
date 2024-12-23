@@ -82,6 +82,12 @@ struct AITranslate: AsyncParsableCommand {
     )
     var force: Bool = false
 
+    @Flag(
+        name: .shortAndLong,
+        help: ArgumentHelp("Removes stale keys from the output file.")
+    )
+    var removeStale: Bool = false
+
     lazy var openAI: OpenAI = {
         let configuration = OpenAI.Configuration(
             token: openAIKey,
@@ -186,6 +192,13 @@ struct AITranslate: AsyncParsableCommand {
     func save(_ dict: StringsDict) throws {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .prettyPrinted, .withoutEscapingSlashes]
+        if removeStale {
+            for key in dict.strings.keys {
+                if dict.strings[key]?.extractionState == "stale" {
+                    dict.strings[key] = nil
+                }
+            }
+        }
         let data = try encoder.encode(dict)
 
         try backupInputFileIfNecessary()

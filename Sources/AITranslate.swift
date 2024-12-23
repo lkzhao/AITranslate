@@ -15,10 +15,12 @@ struct AITranslate: AsyncParsableCommand {
     static let systemPrompt =
     """
     You are a translator tool that translates UI strings for a software application.
-    System will send a source language, a target language, and
-    optionally some context to help you understand how the original text is used within
-    the application. System might also send some existing translations. 
-    Use the existing translations when possible so that the translation is consistent with the rest of the application.
+    System inputs are:
+    - source language
+    - target language
+    - context (optional)
+    - Existing translations (optional): A dictionary of translations. Always use the values in this dictionary for the translation of certain words. Keys in this dictionary should always be translated to the corresponding values.
+    
     User will send you the original text for translation.
     In your response include only the translation. Do not wrap it in any markup or escape characters.
     If the original text is markdown, maintain its heading and format.
@@ -52,6 +54,18 @@ struct AITranslate: AsyncParsableCommand {
         help: ArgumentHelp("Keys to translate, if not provided all keys are translated")
     )
     var keys: [String] = []
+
+    @Option(
+        name: .shortAndLong,
+        help: ArgumentHelp("Keys to pass to OpenAI for existing translations")
+    )
+    var existingTranslations: [String] = []
+
+    @Option(
+        name: .shortAndLong,
+        help: ArgumentHelp("Additional context to provide to OpenAI")
+    )
+    var additionalContext: String = ""
 
     @Flag(name: .shortAndLong)
     var verbose: Bool = false
@@ -218,9 +232,9 @@ struct AITranslate: AsyncParsableCommand {
         }
 
         var existingTranslations: [String: String]?
-        let strongTextInText = text.markdownStrongTexts.union((context?.markdownStrongTexts ?? []))
-        if !strongTextInText.isEmpty {
-            existingTranslations = strongTextInText
+        let existingTranslationKeys = text.markdownStrongTexts.union(Set(self.existingTranslations))
+        if !existingTranslationKeys.isEmpty {
+            existingTranslations = existingTranslationKeys
                 .reduce(into: [String: String]()) { result, key in
                     let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
                     let finalKey = lowerCaseKeyMap[trimmed.lowercased()] ?? trimmed
@@ -231,7 +245,7 @@ struct AITranslate: AsyncParsableCommand {
         let request = RequestData(
             sourceLanguage: stringsDict.sourceLanguage,
             targetLanguage: target,
-            context: context,
+            context: [additionalContext, context].compactMap({ $0 }).joined(separator: " "),
             existingTranslations: existingTranslations
         )
 
